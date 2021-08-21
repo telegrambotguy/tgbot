@@ -15,15 +15,36 @@ function setWebhook() {
   Logger.log(response.getContentText());
 }
 
-function sendText(userId,text,messageId,data) {
-  var url = telegramUrl + "/sendMessage?chat_id=" + userId + "&text=" + text + "&reply_to_message_id=" + messageId;
-  var response = UrlFetchApp.fetch(url);
+function sendText(userId,text,messageId) {
+  var url = telegramUrl + "/sendMessage";
+  var response = UrlFetchApp.fetch(url,{ 
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      chat_id: userId,
+      text: text,
+      reply_to_message_id: messageId,
+      parse_mode: 'HTML'
+    })
+  });
   // GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),"Message sent to bot", JSON.stringify(url,data,4));
   Logger.log(response.getContentText());
 }
 
 function doGet(e) {
-  return HtmlService.createHtmlOutput("Ready!");
+  return HtmlService.createHtmlOutput("Ready!" + "<br />" + telegramUrl + "/setWebhook?url=" + webAppUrl + "<br />" + getCroPrice());
+}
+
+function getCroPrice(){
+  var url = "https://api.crypto.com/v2/public/get-ticker";
+  var param = "instrument_name";
+  var ticker = "CRO_USDT";
+  var response = UrlFetchApp.fetch(url + "?" + param + "=" + ticker);
+  var priceContent = response.getContentText();
+  var priceJson = JSON.parse(priceContent);
+  var price = priceJson.result.data.a;
+
+  return price;
 }
 
 function doPost(e) {
@@ -44,13 +65,14 @@ function doPost(e) {
   // GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),"Message sent to bot", JSON.stringify(data,data,4));
 
   if(textReceived.toLowerCase().indexOf("cro")>-1) {
-    var quotes = sheet.getSheets()[0].getDataRange().getValues();
+    var quotes = sheet.getSheetByName("Quotes").getDataRange().getValues();
     var randomIndex = Math.floor(Math.random() * quotes.length);
     var quote = quotes[randomIndex].toLocaleString();
+    var croPrice = getCroPrice();
+    var message = quote + "\nCRO is now <b>" + croPrice + " USD</b>";
+
     // GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),"Message sent to bot", JSON.stringify(data,data,4));
 
-    sendText(chatId,quote,messageId,data);
+    sendText(chatId,message,messageId);
   }
-
-  sheet.getSheets()[1].appendRow([new Date(),userId,isBot,userName,firstName,lastName,chatId,chatTitle,chatType,messageId,textReceived,quote]);
 }
